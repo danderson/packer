@@ -53,9 +53,9 @@ CHECKSUM = '%%CHECKSUM%%'
 IS_PACKED = '%%IS_PACKED%%'
 ARCHIVE_DELIMITER = '# BEGIN ARCHIVE'
 
-# Encoder
-ENCODER_DELIMITER = '# Encoder'
-DECODER_DELIMITER = '# Decoder'
+# BEGIN_ENCODER
+ENCODER_DELIMITER = '# BEGIN_ENCODER'
+DECODER_DELIMITER = '# BEGIN_DECODER'
 
 def _cleanpath(path):
     return os.path.normpath(os.path.expanduser(os.path.expandvars(path)))
@@ -97,6 +97,12 @@ def _encode_char(string, badchar):
                 return encoded, string.replace(badchar, s)
 
 
+def _substitute_vars(text, vars):
+    for name, value in vars.iteritems():
+        text = text.replace('%%' + name + '%%', str(value))
+    return text
+
+
 def _clean_unpacker(source, cr_escape, nl_escape, checksum):
     source = source.splitlines(True)
     out, source = source[:2], source[2:]
@@ -111,14 +117,11 @@ def _clean_unpacker(source, cr_escape, nl_escape, checksum):
             out.append(line)
     unpacker = ''.join(out)
 
-    def replace(text, pattern, value):
-        return text.replace('%%' + pattern + '%%', str(value))
-    unpacker = replace(unpacker, 'CR_ESCAPE', cr_escape)
-    unpacker = replace(unpacker, 'NL_ESCAPE', nl_escape)
-    unpacker = replace(unpacker, 'CHECKSUM', checksum)
-    unpacker = replace(unpacker, 'IS_PACKED', 1)
-
-    return unpacker.strip()
+    return _substitute_vars(unpacker, {
+            'CR_ESCAPE': cr_escape,
+            'NL_ESCAPE': nl_escape,
+            'CHECKSUM': checksum,
+            'IS_PACKED': 1}).strip()
 
 
 def pack(pattern_list, output):
@@ -136,22 +139,18 @@ def pack(pattern_list, output):
 
     with open(output, 'wb') as f:
         f.write(unpacker)
-        f.write('\n%s\n#' % ARCHIVE_DELIMITER)
+        f.write('\n%s' % ARCHIVE_DELIMITER)
         f.write(archive)
 
 
-# Decoder
+# BEGIN_DECODER
 def _get_archive():
     with open(sys.argv[0]) as f:
-        grab_next = False
         for line in f:
-            line = line.strip()
-            if grab_next:
-                archive = line[1:]
+            if line.startswith(ARCHIVE_DELIMITER):
+                archive = line[len(ARCHIVE_DELIMITER):].strip()
                 archive = archive.replace(NL_ESCAPE, '\n')
                 return archive.replace(CR_ESCAPE, '\r')
-            if line == ARCHIVE_DELIMITER:
-                grab_next = True
 
 
 def _unpack_archive(archive, dest):
