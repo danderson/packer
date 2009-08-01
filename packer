@@ -183,7 +183,6 @@ def _execute_main(dir):
 
 def unpack():
     tempdir = tempfile.mkdtemp(suffix='_' + CHECKSUM, prefix='pack_')
-    print tempdir
     _unpack_archive(_get_archive(), tempdir)
     _execute_main(tempdir)
     shutil.rmtree(tempdir)
