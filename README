@@ -1,0 +1,69 @@
+Packer
+======
+
+Packer is an utility file that creates an executable binary "bundle"
+out of a tree of files and an executable called 'main'. When the
+bundle is executed, the tree is extracted to a temporary directory,
+the inner 'main' binary is executed, and the temporary directory is
+deleted when 'main' terminates.
+
+For example, suppose you have the following tree:
+
+myproject/
+  project_executable
+  data/
+    foo.dat
+    bar.dat
+  images/
+    splash.png
+
+The project executable requires the data files and images to be
+present in order to function, but distributing a tree is a little
+cumbersome.
+
+Instead, rename project_executable to 'main', then create a packfile:
+
+$ cd myproject
+$ /path/to/packer packed_project project_executable data/*.dat images
+
+As you can see, the first argument to the packer is the output
+filename. All subsequent arguments are file patterns for files to
+include in the packed file.
+
+When you execute packed_project, it will extract the pack into a
+temporary tree, for example:
+
+/tmp
+  pack_4492_4952052859802/
+    main
+    data/
+      foo.dat
+      bar.dat
+    images/
+      splash.png
+
+Once extracted, the unpacker will execute the file named 'main' inside
+the extracted tree, which will launch your binary.
+
+Now, how do you get to your files? The current working directory is
+set to the directory from which packed_project was executed, to
+maintain the illusion for the user that the packed file is a normal
+executable. So, to get to the data files packed alongside your binary,
+the packer sets environment variables for you before it invokes your
+executable:
+
+  - UNPACK_DIR is set to the location of the unpacked tree.
+  - The following variables are prepended with UNPACK_DIR:
+    - PATH
+    - PYTHONPATH
+    - RUBYPATH
+    - LD_LIBRARY_PATH
+
+If the files associated with the binary are other binaries, shared
+libraries, python modules or ruby scripts, the integration is pretty
+much automagic. For all other uses the program can examine UNPACK_DIR
+to find its files.
+
+Once your main program terminates, the unpacker will delete the
+temporary directory. Make sure that anything you want to keep between
+executions is moved somewhere else.

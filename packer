@@ -1,0 +1,144 @@
+#!/usr/bin/env python
+# -*- encoding: utf-8 -*-
+
+"""Create a packfile from a set of files.
+
+Pack python code into a single executable file which unpacks on
+execution and runs a main function.
+"""
+
+import glob
+import hashlib
+import os
+import os.path
+import shutil
+try:
+    import cStringIO as StringIO
+except ImportError:
+    import StringIO
+import subprocess
+import tarfile
+import tempfile
+
+
+CR_ESCAPE = '%%CR_ESCAPE%%'
+NL_ESCAPE = '%%NL_ESCAPE%%'
+CHECKSUM = '%%CHECKSUM%%'
+IS_PACKED = '%%IS_PACKED%%'
+ARCHIVE_DELIMITER = '# BEGIN ARCHIVE'
+
+
+# Encoder
+def _cleanpath(path):
+    return os.path.normpath(os.path.expanduser(os.path.expandvars(path)))
+
+
+def _expandpaths(pattern_list):
+    clean_list = [_cleanpath(x) for x in pattern_list]
+    for path in clean_list:
+        for expanded in glob.glob(path):
+            yield expanded
+
+
+def _make_tar_string(file_list):
+    tar_out = StringIO.StringIO()
+
+    tar = tarfile.open(fileobj=tar_out, mode='w:gz',
+                       format=tarfile.USTAR_FORMAT)
+    for path in file_list:
+        tar.add(path)
+    tar.close()
+    return tar_out.getvalue()
+
+
+def _encode_char(string, badchar):
+    def candidate_chars():
+        # Newline and carriage return will expose python to raw
+        # archive. 92 is \ and will cause stuff to be escaped,
+        # possibly strangely.
+        STOP_CHARS = [10, 13, 92]
+        for x in xrange(0, 127):
+            if x in STOP_CHARS: continue
+            yield x
+
+    for i in candidate_chars():
+        for j in candidate_chars():
+            s = chr(i) + chr(j)
+            if s not in string:
+                encoded = ''.join(['\\x%02x' % ord(x) for x in s])
+                return encoded, string.replace(badchar, s)
+
+
+def pack(pattern_list, output):
+    archive = _make_tar_string(_expandpaths(pattern_list))
+
+    sha1 = hashlib.sha1()
+    sha1.update(archive)
+    checksum = sha1.hexdigest()
+
+    cr_escape, archive = _encode_char(archive, '\r')
+    nl_escape, archive = _encode_char(archive, '\n')
+
+    with open(__file__, 'rb') as f:
+        unpacker = f.read()
+
+    def replace(text, pattern, value):
+        return text.replace('%%' + pattern + '%%', str(value))
+    unpacker = replace(unpacker, 'CR_ESCAPE', cr_escape)
+    unpacker = replace(unpacker, 'NL_ESCAPE', nl_escape)
+    unpacker = replace(unpacker, 'CHECKSUM', checksum)
+    unpacker = replace(unpacker, 'IS_PACKED', 1)
+
+    with open(output, 'wb') as f:
+        f.write(unpacker)
+        f.write('\n%s\n#' % ARCHIVE_DELIMITER)
+        f.write(archive)
+
+
+# Decoder
+def _get_archive():
+    with open(sys.argv[0]) as f:
+        grab_next = False
+        for line in f:
+            line = line.strip()
+            if grab_next:
+                archive = line[1:]
+                archive = archive.replace(NL_ESCAPE, '\n')
+                return archive.replace(CR_ESCAPE, '\r')
+            if line == ARCHIVE_DELIMITER:
+                grab_next = True
+
+
+def _unpack_archive(archive, dest):
+    tar_in = StringIO.StringIO(archive)
+    tar = tarfile.open(fileobj=tar_in, mode='r:gz')
+    tar.extractall(path=dest)
+    tar.close()
+
+
+def _execute_main(dir):
+    mainfile = os.path.join(dir, 'main')
+    if not os.path.isfile(mainfile):
+        return
+    env = os.environ
+    if 'PYTHONPATH' in env:
+        env['PYTHONPATH'] = '%s:%s' % (tempdir, env['PYTHONPATH'])
+    else:
+        env['PYTHONPATH'] = dir
+    subprocess.call([mainfile], cwd=os.getcwd(), env=env)
+
+
+def unpack():
+    tempdir = tempfile.mkdtemp(suffix='_' + CHECKSUM, prefix='pack_')
+    print tempdir
+    _unpack_archive(_get_archive(), tempdir)
+    _execute_main(tempdir)
+    shutil.rmtree(tempdir)
+
+
+if __name__ == '__main__':
+    import sys
+    if IS_PACKED == '1':
+        unpack()
+    else:
+        pack(sys.argv[2:], sys.argv[1])
