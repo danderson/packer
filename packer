@@ -161,15 +161,23 @@ def _unpack_archive(archive, dest):
     tar.close()
 
 
+def _prepare_env(vars, dir):
+    env = os.environ
+    for var in vars:
+        if var in env:
+            env[var] = '%s:%s' % (dir, env[var])
+        else:
+            env[var] = dir
+    env['UNPACK_DIR'] = dir
+    return env
+
+
 def _execute_main(dir):
     mainfile = os.path.join(dir, 'main')
     if not os.path.isfile(mainfile):
         return
-    env = os.environ
-    if 'PYTHONPATH' in env:
-        env['PYTHONPATH'] = '%s:%s' % (tempdir, env['PYTHONPATH'])
-    else:
-        env['PYTHONPATH'] = dir
+    env = _prepare_env(
+        ['PATH', 'PYTHONPATH', 'RUBYPATH', 'LD_LIBRARY_PATH'], dir)
     subprocess.call([mainfile], cwd=os.getcwd(), env=env)
 
 
