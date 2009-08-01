@@ -51,6 +51,7 @@ import tempfile
 CR_ESCAPE = '%%CR_ESCAPE%%'
 NL_ESCAPE = '%%NL_ESCAPE%%'
 CHECKSUM = '%%CHECKSUM%%'
+EXECUTABLE = '%%EXECUTABLE%%'
 IS_PACKED = '%%IS_PACKED%%'
 ARCHIVE_DELIMITER = '# BEGIN ARCHIVE'
 
@@ -104,7 +105,8 @@ def _substitute_vars(text, vars):
     return text
 
 
-def _clean_unpacker(source, cr_escape, nl_escape, checksum):
+def _clean_unpacker(source, cr_escape, nl_escape,
+                    checksum, executable):
     source = source.splitlines(True)
     out, source = source[:2], source[2:]
 
@@ -122,11 +124,12 @@ def _clean_unpacker(source, cr_escape, nl_escape, checksum):
             'CR_ESCAPE': cr_escape,
             'NL_ESCAPE': nl_escape,
             'CHECKSUM': checksum,
+            'EXECUTABLE': executable,
             'IS_PACKED': 1}).strip()
 
 
 def pack():
-    output, pattern_list = sys.argv[1], sys.argv[2:]
+    output, executable, pattern_list = sys.argv[1], sys.argv[2], sys.argv[3:]
 
     archive = _make_tar_string(_expandpaths(pattern_list))
 
@@ -138,7 +141,8 @@ def pack():
     nl_escape, archive = _encode_char(archive, '\n')
 
     with open(__file__, 'rb') as f:
-        unpacker = _clean_unpacker(f.read(), cr_escape, nl_escape, checksum)
+        unpacker = _clean_unpacker(f.read(), cr_escape, nl_escape,
+                                   checksum, executable)
 
     with open(output, 'wb') as f:
         f.write(unpacker)
@@ -175,7 +179,7 @@ def _prepare_env(vars, dir):
 
 
 def _execute_main(dir):
-    mainfile = os.path.join(dir, 'main')
+    mainfile = os.path.join(dir, EXECUTABLE)
     if not os.path.isfile(mainfile):
         return
     env = _prepare_env(
