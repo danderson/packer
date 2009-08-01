@@ -1,11 +1,37 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
-
-"""Create a packfile from a set of files.
-
-Pack python code into a single executable file which unpacks on
-execution and runs a main function.
-"""
+#
+# Copyright 2009, David Anderson <dave@natulte.net>
+#
+# Create a packfile from a set of files.
+#
+# See README for details.
+#
+# Copyright 2009, David Anderson <dave@natulte.net>
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+#
+# Please further note that this license covers only the
+# packing/unpacking code. If an archive is appended to the packer file
+# by the packing code, the contents of that archive is NOT covered by
+# this license. Please consult the contents of the archive to find the
+# license for that data.
 
 import glob
 import hashlib
@@ -27,8 +53,10 @@ CHECKSUM = '%%CHECKSUM%%'
 IS_PACKED = '%%IS_PACKED%%'
 ARCHIVE_DELIMITER = '# BEGIN ARCHIVE'
 
-
 # Encoder
+ENCODER_DELIMITER = '# Encoder'
+DECODER_DELIMITER = '# Decoder'
+
 def _cleanpath(path):
     return os.path.normpath(os.path.expanduser(os.path.expandvars(path)))
 
@@ -69,6 +97,30 @@ def _encode_char(string, badchar):
                 return encoded, string.replace(badchar, s)
 
 
+def _clean_unpacker(source, cr_escape, nl_escape, checksum):
+    source = source.splitlines(True)
+    out, source = source[:2], source[2:]
+
+    in_encoder = False
+    for line in source:
+        if line.startswith(ENCODER_DELIMITER):
+            in_encoder = True
+        elif line.startswith(DECODER_DELIMITER):
+            in_encoder = False
+        if not in_encoder and not line.startswith('#') and line.strip():
+            out.append(line)
+    unpacker = ''.join(out)
+
+    def replace(text, pattern, value):
+        return text.replace('%%' + pattern + '%%', str(value))
+    unpacker = replace(unpacker, 'CR_ESCAPE', cr_escape)
+    unpacker = replace(unpacker, 'NL_ESCAPE', nl_escape)
+    unpacker = replace(unpacker, 'CHECKSUM', checksum)
+    unpacker = replace(unpacker, 'IS_PACKED', 1)
+
+    return unpacker.strip()
+
+
 def pack(pattern_list, output):
     archive = _make_tar_string(_expandpaths(pattern_list))
 
@@ -80,14 +132,7 @@ def pack(pattern_list, output):
     nl_escape, archive = _encode_char(archive, '\n')
 
     with open(__file__, 'rb') as f:
-        unpacker = f.read()
-
-    def replace(text, pattern, value):
-        return text.replace('%%' + pattern + '%%', str(value))
-    unpacker = replace(unpacker, 'CR_ESCAPE', cr_escape)
-    unpacker = replace(unpacker, 'NL_ESCAPE', nl_escape)
-    unpacker = replace(unpacker, 'CHECKSUM', checksum)
-    unpacker = replace(unpacker, 'IS_PACKED', 1)
+        unpacker = _clean_unpacker(f.read(), cr_escape, nl_escape, checksum)
 
     with open(output, 'wb') as f:
         f.write(unpacker)
