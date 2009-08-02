@@ -76,8 +76,7 @@ def _expandpaths(pattern_list):
 def _make_tar_string(file_list):
     tar_out = StringIO.StringIO()
 
-    tar = tarfile.open(fileobj=tar_out, mode='w:gz',
-                       format=tarfile.USTAR_FORMAT)
+    tar = tarfile.open(fileobj=tar_out, mode='w:gz')
     for path in file_list:
         tar.add(path)
     tar.close()
