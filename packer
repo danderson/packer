@@ -129,7 +129,7 @@ def _clean_unpacker(source, cr_escape, nl_escape,
 
 
 def pack():
-    output, executable, pattern_list = sys.argv[1], sys.argv[2], sys.argv[3:]
+    output, executable, pattern_list = sys.argv[1], sys.argv[2], sys.argv[2:]
 
     archive = _make_tar_string(_expandpaths(pattern_list))
 
