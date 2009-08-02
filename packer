@@ -33,6 +33,8 @@
 # this license. Please consult the contents of the archive to find the
 # license for that data.
 
+from __future__ import with_statement
+
 import glob
 import hashlib
 import os
