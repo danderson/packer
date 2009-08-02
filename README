@@ -2,10 +2,10 @@ Packer
 ======
 
 Packer is an utility file that creates an executable binary "bundle"
-out of a tree of files and an executable called 'main'. When the
-bundle is executed, the tree is extracted to a temporary directory,
-the inner 'main' binary is executed, and the temporary directory is
-deleted when 'main' terminates.
+out of a tree of files and an executable. When the bundle is executed,
+the tree is extracted to a temporary directory, the inner binary
+binary is executed, and the temporary directory is deleted when it
+terminates.
 
 For example, suppose you have the following tree:
 
