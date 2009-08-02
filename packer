@@ -38,6 +38,7 @@ import hashlib
 import os
 import os.path
 import shutil
+import stat
 try:
     import cStringIO as StringIO
 except ImportError:
@@ -148,6 +149,7 @@ def pack():
         f.write(unpacker)
         f.write('\n%s' % ARCHIVE_DELIMITER)
         f.write(archive)
+    os.chmod(output, stat.S_IRWXU)
 
 
 # BEGIN_DECODER
