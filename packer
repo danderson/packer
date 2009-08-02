@@ -186,7 +186,7 @@ def _execute_main(dir):
         return
     env = _prepare_env(
         ['PATH', 'PYTHONPATH', 'RUBYPATH', 'LD_LIBRARY_PATH'], dir)
-    subprocess.call([mainfile], cwd=os.getcwd(), env=env)
+    subprocess.call([mainfile] + sys.argv[1:], cwd=os.getcwd(), env=env)
 
 
 def unpack():
